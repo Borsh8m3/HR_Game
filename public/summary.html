@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title data-i18n-doctitle="sum.pageTitle">HR Game - Raport Heatmapy CV</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/analytics-report.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/heatmap.js/2.0.0/heatmap.min.js"></script>
+    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/analytics-report.js"></script>
+
+    <style>
+        body { background-color: #F4F4F5; padding: 30px 0; display: block; min-height: 100dvh; }
+        .candidate-item { cursor: pointer; transition: background-color 150ms ease; border-left: 4px solid #E0E0E0; border-radius: 0; }
+        .candidate-item.active { background-color: #F0F6FF; border-left-color: #0066FF; font-weight: 600; color: #1A1A1A; }
+        .bg-success { background-color: #0E8A5F !important; }
+        .bg-danger { background-color: #D93025 !important; }
+        .bg-secondary { background-color: #4A4A4A !important; }
+        .badge { border-radius: 2px !important; }
+        .detail-section-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #4A4A4A; margin: 4px 0 10px; }
+        .detail-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+        .detail-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 0.8rem; font-weight: 600; border: 1px solid #E0E0E0; background: #F4F4F5; color: #1A1A1A; }
+        .detail-chip svg { width: 13px; height: 13px; flex-shrink: 0; }
+        .detail-chip.chip-plus { background: #E9F7F0; border-color: #0E8A5F; color: #0B6E4C; }
+        .detail-chip.chip-minus { background: #FCEBEA; border-color: #D93025; color: #B3261E; }
+        .detail-chip.chip-depends { background: #F4F4F5; border-color: #4A4A4A; color: #4A4A4A; }
+
+        .score-list { display: flex; flex-direction: column; gap: 10px; }
+        .score-row { display: flex; align-items: center; gap: 12px; }
+        .score-row-label { flex: 0 0 150px; font-size: 0.8rem; font-weight: 600; color: #1A1A1A; }
+        .score-row-bar { flex: 1; height: 6px; border-radius: 3px; background: #E0E0E0; overflow: hidden; }
+        .score-row-fill { height: 100%; border-radius: 3px; }
+        .score-row-value { flex: 0 0 34px; text-align: right; font-size: 0.8rem; font-weight: 700; color: #1A1A1A; }
+
+        .quiz-breakdown { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .quiz-breakdown-item { border: 1px solid #E0E0E0; border-left: 4px solid #E0E0E0; padding: 10px 14px; background: #F4F4F5; }
+        .quiz-breakdown-item.is-correct { border-left-color: #0E8A5F; }
+        .quiz-breakdown-item.is-incorrect { border-left-color: #D93025; }
+        .quiz-breakdown-header { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.875rem; }
+        .quiz-breakdown-badge { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 8px; }
+        .is-correct .quiz-breakdown-badge { background: #E9F7F0; color: #0B6E4C; }
+        .is-incorrect .quiz-breakdown-badge { background: #FCEBEA; color: #B3261E; }
+        .quiz-breakdown-question { color: #1A1A1A; font-size: 0.875rem; margin-top: 4px; }
+        .quiz-breakdown-answer { color: #4A4A4A; font-size: 0.8rem; margin-top: 4px; }
+
+        /* STYLE HEATMAPY - Idealne dopasowanie do zdjęcia */
+        #heatmapWrapper {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            overflow: auto;
+        }
+        #heatmapContainer {
+            position: relative;
+            display: none; /* Ukryte do momentu załadowania */
+        }
+        #cvBaseImage {
+            display: block;
+            max-height: 80vh;
+            width: auto;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            border: 1px solid #E0E0E0;
+        }
+        #heatmapOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10; /* Zapewnia, że jest na wierzchu */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container-fluid">
+        <div class="row mb-4" id="aggregateReportRow" style="display:none;">
+            <div class="col-12">
+                <div class="dashboard-card">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                        <div>
+                            <h4 class="mb-1" data-i18n="sum.title">Zbiorczy raport sesji</h4>
+                            <p class="text-muted mb-0" data-i18n="sum.subtitle">Który kandydat wypadł najlepiej i jak oceniają ich inni gracze.</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="setup.html" class="btn btn-outline-primary btn-sm" data-i18n="sum.playAgain">Zagraj ponownie</a>
+                            <a href="index.html" class="btn btn-primary btn-sm" data-i18n="common.backToMenu">Powrót do menu</a>
+                        </div>
+                    </div>
+                    <div id="aggregateCards" class="aggregate-cards"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-3">
+                <div class="dashboard-card mb-4">
+                    <h5 class="mb-3" data-i18n="sum.candidateListTitle">Lista Kandydatów</h5>
+                    <div class="list-group" id="candidateList"></div>
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="index.html" class="btn btn-outline-primary btn-sm" data-i18n="sum.mainMenuBtn">Menu Główne</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+                <div class="dashboard-card h-100">
+                    <div id="detailsHeader" style="display:none;" class="mb-3 d-flex justify-content-between align-items-center border-bottom pb-2">
+                        <h3><span id="statName"></span></h3>
+                        <span class="badge fs-6" id="statDecision"></span>
+                    </div>
+
+                    <div id="quizBreakdown" class="quiz-breakdown"></div>
+
+                    <div id="scorePanel" style="display:none;" class="mb-4">
+                        <div class="detail-section-label" data-i18n="sum.designScoreLabel">Ocena design CV</div>
+                        <div class="score-list" id="scoreList"></div>
+                        <div class="detail-section-label mt-3" id="tagsLabel" style="display:none;" data-i18n="sum.whatInfluencedLabel">Co wpłynęło na ocenę</div>
+                        <div class="detail-tags" id="detailTags"></div>
+                    </div>
+
+                    <div id="gazeAnalysisPanel" style="display:none;">
+                        <h5 class="text-muted mb-3" data-i18n="sum.heatmapTitle">Realna Heatmapa skupienia wzroku na pliku JPG</h5>
+
+                        <div id="heatmapWrapper">
+                            <div id="heatmapContainer">
+                                <img id="cvBaseImage" src="" alt="CV Base">
+                                <div id="heatmapOverlay"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="placeholderPanel" class="text-center text-muted p-5">
+                        <p class="fs-4" data-i18n="sum.placeholderText">Wybierz kandydata, aby wyświetlić heatmapę na zdjęciu CV.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sessionResults = JSON.parse(localStorage.getItem('sessionResults')) || [];
+        let heatmapInstance = null; 
+
+        window.addEventListener('load', function() {
+            const listContainer = document.getElementById('candidateList');
+            if (sessionResults.length === 0) {
+                listContainer.innerHTML = `<div class="alert alert-warning">${t('sum.noSessionData')}</div>`;
+                return;
+            }
+
+            renderAggregateReport();
+
+            sessionResults.forEach((result, index) => {
+                let badgeClass = 'bg-success';
+                if (result.decision.includes('Odrzucono')) badgeClass = 'bg-danger';
+                if (result.decision.includes('Timeout')) badgeClass = 'bg-secondary';
+
+                listContainer.innerHTML += `
+                    <button type="button" class="list-group-item list-group-item-action candidate-item d-flex justify-content-between align-items-center" onclick="showCandidateHeatmap(${index}, this)">
+                        ${result.name}
+                        <span class="badge ${badgeClass}">${decisionLabel(result.decision)}</span>
+                    </button>
+                `;
+            });
+        });
+
+        function showCandidateHeatmap(index, element) {
+            document.querySelectorAll('.candidate-item').forEach(item => item.classList.remove('active'));
+            element.classList.add('active');
+            document.getElementById('placeholderPanel').style.display = 'none';
+            document.getElementById('detailsHeader').style.display = 'flex';
+            document.getElementById('gazeAnalysisPanel').style.display = 'block';
+
+            const data = sessionResults[index];
+            document.getElementById('statName').innerText = data.name;
+            document.getElementById('statDecision').innerText = decisionLabel(data.decision);
+
+            const breakdownPanel = document.getElementById('quizBreakdown');
+            breakdownPanel.innerHTML = '';
+            if (Array.isArray(data.quizDetails)) {
+                data.quizDetails.forEach((qa, idx) => {
+                    breakdownPanel.innerHTML += `
+                        <div class="quiz-breakdown-item ${qa.correct ? 'is-correct' : 'is-incorrect'}">
+                            <div class="quiz-breakdown-header">
+                                <span>${t('common.questionN', {i: idx + 1})}</span>
+                                <span class="quiz-breakdown-badge">${qa.correct ? t('common.correct') : t('common.incorrect')}</span>
+                            </div>
+                            <div class="quiz-breakdown-question">${qa.question}</div>
+                            <div class="quiz-breakdown-answer">${t('sum.answerLabel')} <strong>${qa.selectedAnswer}</strong></div>
+                            ${!qa.correct ? `<div class="quiz-breakdown-answer">${t('common.correctAnswerLabel')} <strong>${qa.correctAnswer}</strong></div>` : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            const scorePanel = document.getElementById('scorePanel');
+            const scoreList = document.getElementById('scoreList');
+            const detailTags = document.getElementById('detailTags');
+            const tagsLabel = document.getElementById('tagsLabel');
+            scoreList.innerHTML = '';
+            detailTags.innerHTML = '';
+
+            if (typeof data.quizScore === 'number') {
+                scorePanel.style.display = 'block';
+
+                if (data.scores) {
+                    Object.keys(data.scores).forEach(crit => {
+                        scoreList.innerHTML += renderScoreRow(criteriaLabel(crit), data.scores[crit]);
+                    });
+                }
+
+                const chipPlusIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>';
+                const chipMinusIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z" transform="rotate(180 12 12)"/></svg>';
+                const chipDependsIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+
+                const hasTags = (data.tags?.plus?.length || 0) + (data.tags?.minus?.length || 0) + (data.tags?.depends?.length || 0) > 0;
+                tagsLabel.style.display = hasTags ? 'block' : 'none';
+
+                (data.tags?.plus || []).forEach(tag => {
+                    detailTags.innerHTML += `<span class="detail-chip chip-plus">${chipPlusIcon}${tagLabel(tag)}</span>`;
+                });
+                (data.tags?.minus || []).forEach(tag => {
+                    detailTags.innerHTML += `<span class="detail-chip chip-minus">${chipMinusIcon}${tagLabel(tag)}</span>`;
+                });
+                (data.tags?.depends || []).forEach(tag => {
+                    detailTags.innerHTML += `<span class="detail-chip chip-depends">${chipDependsIcon}${tagLabel(tag)}</span>`;
+                });
+            } else {
+                scorePanel.style.display = 'none';
+            }
+
+            const imgElem = document.getElementById('cvBaseImage');
+            const overlay = document.getElementById('heatmapOverlay');
+            const container = document.getElementById('heatmapContainer');
+
+            overlay.innerHTML = '';
+            imgElem.src = data.imageSrc;
+
+            imgElem.onload = function() {
+                // inline-block sprawia, że kontener przyjmuje wymiary obrazka - potrzebne poniżej do rozmiaru heatmapy
+                container.style.display = 'inline-block';
+
+                const rawPoints = data.gazeAnalytics.points;
+
+                if (data.gazeAnalytics.trackingEnabled === false) {
+                    swal(t('sum.trackingOffTitle'), t('sum.trackingOffText'), "info");
+                    return;
+                }
+
+                if(!rawPoints || rawPoints.length === 0) {
+                    swal(t('sum.noGazeDataTitle'), t('sum.noGazeDataText'), "info");
+                    return;
+                }
+
+                // heatmap.js mierzy rozmiar kontenera przez getComputedStyle() i mnoży
+                // to przez procentowe width/height - zamiast na to liczyć, podajemy mu
+                // dokładny rozmiar w pikselach, dopasowany do faktycznie załadowanego obrazka.
+                const w = imgElem.clientWidth;
+                const h = imgElem.clientHeight;
+                overlay.style.width = w + 'px';
+                overlay.style.height = h + 'px';
+
+                heatmapInstance = h337.create({
+                    container: overlay,
+                    width: w,
+                    height: h,
+                    radius: 40,
+                    maxOpacity: 0.8,
+                    minOpacity: 0,
+                    blur: 0.85
+                });
+
+                // heatmap.js ustawia container.style.position = "relative" jako efekt
+                // uboczny inicjalizacji, co nadpisuje nasz CSS (position: absolute) i
+                // zrzuca warstwę heatmapy pod obrazek zamiast na niego. Przywracamy to.
+                overlay.style.position = 'absolute';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+
+                // Punkty są zapisane jako ułamek (0-1) szerokości/wysokości obrazka z
+                // ekranu gry - przeliczamy je na piksele aktualnego rozmiaru obrazka,
+                // żeby heatmapa trafiała dokładnie tam, gdzie faktycznie padł wzrok.
+                const scaledPoints = rawPoints.map(p => ({
+                    x: Math.round(p.xNorm * w),
+                    y: Math.round(p.yNorm * h),
+                    value: p.value
+                }));
+
+                let dynamicMax = Math.max(3, Math.floor(scaledPoints.length / 5));
+
+                heatmapInstance.setData({
+                    max: dynamicMax,
+                    data: scaledPoints
+                });
+            };
+        }
+
+        // Prosty poziomy pasek 0-10 - używany w szczegółach kandydata (donuty są już w zbiorczym raporcie wyżej)
+        function renderScoreRow(label, value) {
+            const numValue = Number(value);
+            const pct = Math.max(0, Math.min(100, (numValue / 10) * 100));
+            const color = numValue >= 7 ? '#0E8A5F' : numValue >= 4 ? '#0066FF' : '#D93025';
+            return `
+                <div class="score-row">
+                    <div class="score-row-label">${label}</div>
+                    <div class="score-row-bar"><div class="score-row-fill" style="width:${pct}%; background-color:${color};"></div></div>
+                    <div class="score-row-value">${numValue}/10</div>
+                </div>
+            `;
+        }
+
+        async function renderAggregateReport() {
+            let sheetCandidates = [];
+            try {
+                const res = await fetch('/sheet-data');
+                const data = await res.json();
+                if (data.status === 'success') sheetCandidates = data.candidates;
+            } catch (err) {
+                console.warn('Nie udało się pobrać zbiorczych danych z arkusza:', err);
+            }
+            const sheetByCvId = {};
+            sheetCandidates.forEach(c => { sheetByCvId[String(c.cvId)] = c; });
+
+            const sessionWithOvr = sessionResults.map(r => {
+                const scoreValues = Object.values(r.scores || {}).map(Number).filter(v => !isNaN(v));
+                const ovr = scoreValues.length ? scoreValues.reduce((a, b) => a + b, 0) / scoreValues.length : null;
+                return { ...r, ovr };
+            });
+
+            const ovrValues = sessionWithOvr.map(r => r.ovr).filter(v => v !== null);
+            const bestOvr = ovrValues.length ? Math.max(...ovrValues) : null;
+
+            const container = document.getElementById('aggregateCards');
+            container.innerHTML = '';
+
+            sessionWithOvr.forEach(r => {
+                const isBest = bestOvr !== null && r.ovr === bestOvr;
+                const sheetData = sheetByCvId[String(r.cvId)];
+
+                container.innerHTML += renderCvAnalysisCard(sheetData, {
+                    name: r.name,
+                    decision: r.decision,
+                    scores: r.scores,
+                    tags: r.tags,
+                    ovr: r.ovr,
+                    isBest,
+                    bestLabel: t('sum.aggregateBestLabel'),
+                    showSessionCompare: true,
+                    imageSrc: r.imageSrc
+                });
+            });
+
+            document.getElementById('aggregateReportRow').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>

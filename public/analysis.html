@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title data-i18n-doctitle="ana.pageTitle">HR Game - Analiza CV</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/analytics-report.css">
+    <script src="js/i18n.js"></script>
+    <script src="js/analytics-report.js"></script>
+
+    <style>
+        body { background-color: #F4F4F5; padding: 30px 0; display: block; min-height: 100dvh; }
+        .analysis-wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+        .analysis-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 20px; }
+        .analysis-header h1 { font-size: 1.6rem; margin: 0 0 4px; }
+        .analysis-header p { color: var(--color-secondary); margin: 0; }
+        .analysis-state { text-align: center; color: var(--color-secondary); padding: 60px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="analysis-wrap">
+        <div class="analysis-header">
+            <div>
+                <h1 data-i18n="ana.title">Analiza CV</h1>
+                <p data-i18n="ana.subtitle">Jak wszyscy gracze do tej pory oceniali poszczególne CV.</p>
+            </div>
+            <a href="index.html" class="app-btn" style="margin:0;" data-i18n="common.backToMenu">Powrót do menu</a>
+        </div>
+
+        <div id="analysisState" class="analysis-state" data-i18n="ana.loading">Wczytywanie danych z arkusza...</div>
+        <div id="analysisCards" class="aggregate-cards"></div>
+    </div>
+
+    <script>
+        // Zdjęcia i nazwy CV nie są (w pełni wiarygodnie) częścią danych arkusza - arkusz może zawierać
+        // wpisy zapisane w innym języku niż aktualnie wybrany. Mapujemy je tak jak w game.html, żeby karta
+        // zawsze pokazywała nazwę/zdjęcie w bieżącym języku niezależnie od tego, co trafiło do arkusza.
+        const CV_IMAGES = { 1: 'media/cv1.jpg', 2: 'media/cv2.jpg', 3: 'media/cv3.png' };
+        const CV_NAMES = {
+            1: { pl: 'Kandydat #1 - Dawid Boratyński', en: 'Candidate #1 - Dawid Boratyński' },
+            2: { pl: 'Kandydat #2 - Jan Tomczyk', en: 'Candidate #2 - Jan Tomczyk' },
+            3: { pl: 'Kandydat #3 - Demet Palac', en: 'Candidate #3 - Demet Palac' }
+        };
+
+        async function loadAnalysis() {
+            const stateEl = document.getElementById('analysisState');
+            const container = document.getElementById('analysisCards');
+
+            let candidates = [];
+            try {
+                const res = await fetch('/sheet-data');
+                const data = await res.json();
+                if (data.status === 'success') candidates = data.candidates;
+            } catch (err) {
+                console.warn('Nie udało się pobrać danych z arkusza:', err);
+            }
+
+            if (candidates.length === 0) {
+                stateEl.textContent = t('ana.noData');
+                return;
+            }
+
+            const ovrValues = candidates.map(c => c.avgOvr).filter(v => v !== null && v !== undefined);
+            const bestOvr = ovrValues.length ? Math.max(...ovrValues) : null;
+
+            stateEl.style.display = 'none';
+            candidates
+                .slice()
+                .sort((a, b) => (b.avgOvr ?? -1) - (a.avgOvr ?? -1))
+                .forEach(c => {
+                    const isBest = bestOvr !== null && c.avgOvr === bestOvr;
+                    container.innerHTML += renderCvAnalysisCard(c, {
+                        isBest,
+                        bestLabel: t('ana.bestLabel'),
+                        showSessionCompare: false,
+                        imageSrc: CV_IMAGES[c.cvId],
+                        name: CV_NAMES[c.cvId] ? pickLang(CV_NAMES[c.cvId]) : undefined
+                    });
+                });
+        }
+
+        loadAnalysis();
+    </script>
+
+</body>
+</html>

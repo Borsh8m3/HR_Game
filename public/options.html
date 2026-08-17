@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title data-i18n-doctitle="opt.pageTitle">HR Game - Opcje</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/i18n.js"></script>
+    <style>
+        .option-block { margin: 0 auto 8px; max-width: 320px; }
+        .option-label { display: block; font-size: 0.9rem; font-weight: 600; color: var(--color-primary); margin-bottom: 8px; text-align: left; }
+        .timer-input { width: 100%; padding: 10px 12px; font-size: 1rem; font-family: var(--font-sans); color: var(--color-primary); background: var(--color-neutral); border: 1.5px solid var(--color-border); border-radius: 0; }
+        .timer-input:focus { outline: none; border-color: var(--color-accent); }
+        .lang-switch { display: flex; border: 1.5px solid var(--color-border); }
+        .lang-btn { flex: 1; padding: 10px; background: var(--color-neutral); border: none; font-weight: 600; font-size: 0.9rem; cursor: pointer; color: var(--color-primary); font-family: var(--font-sans); }
+        .lang-btn + .lang-btn { border-left: 1.5px solid var(--color-border); }
+        .lang-btn.active { background: var(--color-accent); color: var(--color-neutral); }
+    </style>
+</head>
+<body>
+
+    <div class="menu-container">
+        <div class="menu-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <h1 data-i18n="opt.title">Opcje</h1>
+        <p class="menu-subtitle" data-i18n="opt.subtitle">Dostosuj sposób rozgrywki.</p>
+
+        <div class="option-block" style="margin-bottom: 24px;">
+            <label class="option-label" data-i18n="opt.languageLabel">Język gry</label>
+            <div class="lang-switch">
+                <button type="button" class="lang-btn" id="langPl" data-i18n="opt.langPolish">Polski</button>
+                <button type="button" class="lang-btn" id="langEn" data-i18n="opt.langEnglish">English</button>
+            </div>
+        </div>
+
+        <label class="track-toggle">
+            <input type="checkbox" id="trackEyesToggle" checked>
+            <span data-i18n="opt.eyeTrackLabel">Śledź oczy (eye tracking)</span>
+        </label>
+        <p class="track-hint" data-i18n="opt.eyeTrackHint">Wyłącz, jeśli nie masz kamery albo nie chcesz jej użyć. Przycisk "Graj" przeniesie Cię wtedy od razu do gry, bez kalibracji.</p>
+
+        <div class="option-block">
+            <label for="defaultTimerInput" class="option-label" data-i18n="opt.timerLabel">Domyślny czas obserwacji CV (sekundy):</label>
+            <input type="number" class="timer-input" id="defaultTimerInput" min="5" max="120">
+        </div>
+        <p class="track-hint" data-i18n="opt.timerHint">Ta wartość będzie domyślnie wypełniona przy konfiguracji nowej sesji gry.</p>
+
+        <a href="index.html" class="app-btn" data-i18n="common.backToMenu">Powrót do menu</a>
+    </div>
+
+    <script>
+        function refreshLangButtons() {
+            document.getElementById('langPl').classList.toggle('active', getLang() === 'pl');
+            document.getElementById('langEn').classList.toggle('active', getLang() === 'en');
+        }
+        document.getElementById('langPl').addEventListener('click', () => { setLang('pl'); applyI18n(); refreshLangButtons(); });
+        document.getElementById('langEn').addEventListener('click', () => { setLang('en'); applyI18n(); refreshLangButtons(); });
+        refreshLangButtons();
+
+        const toggle = document.getElementById('trackEyesToggle');
+        toggle.checked = localStorage.getItem('eyeTrackingPreference') !== 'false';
+
+        toggle.addEventListener('change', function() {
+            localStorage.setItem('eyeTrackingPreference', toggle.checked ? 'true' : 'false');
+        });
+
+        const timerInput = document.getElementById('defaultTimerInput');
+        timerInput.value = localStorage.getItem('defaultCvTimer') || 30;
+
+        timerInput.addEventListener('change', function() {
+            const value = parseInt(timerInput.value);
+            if (!Number.isNaN(value) && value > 0) {
+                localStorage.setItem('defaultCvTimer', value);
+            }
+        });
+    </script>
+
+</body>
+</html>

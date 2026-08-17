@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title data-i18n-doctitle="game.pageTitle">HR Game - Analiza CV</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="./webgazer.js"></script>
+    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+    <script src="./js/i18n.js"></script>
+    <style>
+        body { background-color: #F4F4F5; overflow-x: hidden; display: block; min-height: 100dvh; }
+
+        #timerBar { height: 6px; background-color: #0066FF; width: 100%; transition: width 1s linear; }
+        .game-container { display: flex; min-height: calc(100dvh - 6px); }
+
+        /* Obszar na lewo - wycentrowane zdjęcie CV */
+        .cv-panel { flex: 2; padding: 20px; display: flex; justify-content: center; align-items: center; overflow-y: auto; }
+
+        .eval-panel { flex: 1; background: #FFFFFF; border-left: 1px solid #E0E0E0; padding: 20px; display: flex; flex-direction: column; }
+        .decision-buttons { margin-top: 24px; display: flex; justify-content: space-between; gap: 10px; }
+        .btn-reject, .btn-accept { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; font-weight: 600; padding: 15px; border: none; }
+        .btn-reject svg, .btn-accept svg { flex-shrink: 0; }
+        .btn-reject { background-color: #D93025; color: white; }
+        .btn-reject:hover { background-color: #B3261E; color: white; }
+        .btn-accept { background-color: #0E8A5F; color: white; }
+        .btn-accept:hover { background-color: #0B6E4C; color: white; }
+        .controls-hint { text-align: center; color: #4A4A4A; font-size: 0.875rem; margin-top: 10px; }
+        .alert-info { background-color: #F4F4F5; border: 1px solid #E0E0E0; color: #1A1A1A; border-radius: 4px; }
+        #trackingBadge { background-color: #1A1A1A !important; border-radius: 2px; font-weight: 500; }
+
+        /* Faza obserwacji */
+        .watch-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .watch-countdown { font-size: 3rem; font-weight: 700; color: #0066FF; margin: 12px 0; }
+        .watch-hint { color: #4A4A4A; max-width: 320px; text-align: center; }
+        .skip-btn { background: none; border: 1.5px solid #E0E0E0; color: #4A4A4A; font-weight: 600; font-size: 0.875rem; padding: 8px 16px; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+        .skip-btn:hover { background-color: #F4F4F5; border-color: #4A4A4A; color: #1A1A1A; }
+
+        /* Faza quizu */
+        .quiz-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .quiz-progress { color: #4A4A4A; font-weight: 500; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+        .quiz-question { max-width: 640px; text-align: center; font-size: 1.5rem; font-weight: 700; color: #1A1A1A; margin-bottom: 28px; }
+        .quiz-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; width: 100%; max-width: 640px; }
+        .quiz-option { padding: 16px; font-size: 1rem; font-weight: 600; color: #1A1A1A; background: #FFFFFF; border: 1.5px solid #E0E0E0; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+        .quiz-option:hover:not(:disabled) { background-color: #F4F4F5; border-color: #4A4A4A; }
+        .quiz-option:disabled { cursor: default; }
+        .quiz-option.correct { background-color: #0E8A5F; border-color: #0E8A5F; color: #FFFFFF; }
+        .quiz-option.incorrect { background-color: #D93025; border-color: #D93025; color: #FFFFFF; }
+
+        /* Faza oceny */
+        .quiz-breakdown { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        .quiz-breakdown-item { border: 1px solid #E0E0E0; border-left: 4px solid #E0E0E0; padding: 10px 14px; background: #F4F4F5; }
+        .quiz-breakdown-item.is-correct { border-left-color: #0E8A5F; }
+        .quiz-breakdown-item.is-incorrect { border-left-color: #D93025; }
+        .quiz-breakdown-header { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.875rem; }
+        .quiz-breakdown-badge { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 8px; }
+        .is-correct .quiz-breakdown-badge { background: #E9F7F0; color: #0B6E4C; }
+        .is-incorrect .quiz-breakdown-badge { background: #FCEBEA; color: #B3261E; }
+        .quiz-breakdown-question { color: #1A1A1A; font-size: 0.875rem; margin-top: 4px; }
+        .quiz-breakdown-answer { color: #4A4A4A; font-size: 0.8rem; margin-top: 4px; }
+
+        /* Faza oceny: CV zajmuje całą, nieruchomą lewą kolumnę - przewija się tylko panel po prawej */
+        .rate-layout { height: calc(100dvh - 6px); }
+        .rate-layout .cv-panel { overflow: hidden; min-height: 0; height: 100%; padding: 12px; }
+        .rate-panel { flex: 1.5; background: #FFFFFF; border-left: 1px solid #E0E0E0; padding: 24px; display: flex; flex-direction: column; overflow-y: auto; min-height: 0; }
+
+        /* Podgląd CV z lupą i przyciskiem powiększenia */
+        .cv-zoom-wrap { position: relative; display: inline-block; max-width: 100%; max-height: 100%; overflow: hidden; border: 1px solid #E0E0E0; box-shadow: 0 2px 12px rgba(0,0,0,0.06); cursor: zoom-in; }
+        .cv-zoom-wrap img { display: block; max-width: 100%; max-height: calc(100dvh - 70px); transition: transform 120ms ease-out; transform-origin: center center; }
+        .cv-maximize-btn { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: rgba(26,26,26,0.7); color: #FFFFFF; border: none; cursor: pointer; transition: background-color 150ms ease; }
+        .cv-maximize-btn:hover { background: rgba(26,26,26,0.9); }
+        .cv-zoom-hint { color: #4A4A4A; font-size: 0.8rem; text-align: center; margin-top: 10px; }
+
+        .cv-modal-overlay { position: fixed; inset: 0; background: rgba(26,26,26,0.85); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 30px; }
+        .cv-modal-overlay.open { display: flex; }
+        .cv-modal-overlay img { max-width: 90vw; max-height: 90vh; box-shadow: 0 2px 20px rgba(0,0,0,0.4); }
+        .cv-modal-close { position: absolute; top: 20px; right: 24px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); color: #FFFFFF; border: none; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+        .cv-modal-close:hover { background: rgba(255,255,255,0.2); }
+
+        .slider-row { margin-top: 14px; }
+        .slider-row-label { display: flex; justify-content: space-between; font-weight: 600; color: #1A1A1A; margin-bottom: 4px; }
+        .slider-label-text { display: inline-flex; align-items: center; gap: 6px; }
+        .slider-value { color: #0066FF; font-weight: 700; min-width: 1.5em; text-align: right; }
+
+        .info-icon { position: relative; display: inline-flex; color: #4A4A4A; cursor: help; }
+        .info-icon svg { width: 15px; height: 15px; }
+        .info-icon .info-tooltip {
+            position: absolute; top: 130%; left: 50%; transform: translateX(-50%);
+            background: #1A1A1A; color: #FFFFFF; font-size: 0.75rem; font-weight: 400; line-height: 1.4;
+            padding: 8px 10px; width: 220px; text-align: left; border-radius: 2px;
+            opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 150ms ease; z-index: 30;
+        }
+        .info-icon:hover .info-tooltip, .info-icon:focus .info-tooltip { opacity: 1; visibility: visible; }
+
+        .tag-sort-heading { display: flex; align-items: center; gap: 6px; }
+        .tag-sort-hint { color: #4A4A4A; font-size: 0.875rem; margin: 4px 0 12px; }
+
+        .tag-pool { margin-bottom: 16px; }
+        .tag-pool-drop { flex-direction: row !important; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; min-height: 56px; }
+        .tag-pool-drop .tag-tile { flex: 0 0 auto; width: auto; }
+
+        .tag-sort-columns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .tag-zone-title { font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; text-align: center; color: #4A4A4A; }
+        .tag-zone-minus .tag-zone-title { color: #D93025; }
+        .tag-zone-plus .tag-zone-title { color: #0E8A5F; }
+        .tag-zone-depends .tag-zone-title { color: #4A4A4A; }
+        .tag-zone-drop { min-height: 100px; background: #F4F4F5; border: 1.5px dashed #E0E0E0; padding: 8px; display: flex; flex-direction: column; gap: 6px; transition: background-color 150ms ease, border-color 150ms ease; }
+        .tag-zone-drop.drag-over { background: #EAF1FB; border-color: #0066FF; }
+        .tag-zone-minus .tag-zone-drop.drag-over { background: #FCEBEA; border-color: #D93025; }
+        .tag-zone-plus .tag-zone-drop.drag-over { background: #E9F7F0; border-color: #0E8A5F; }
+        .tag-tile { padding: 8px 10px; background: #FFFFFF; border: 1px solid #E0E0E0; font-size: 0.8rem; font-weight: 600; color: #1A1A1A; cursor: grab; user-select: none; text-align: center; }
+        .tag-tile:active { cursor: grabbing; }
+
+        @media (max-width: 640px) {
+            .tag-sort-columns { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="timerBar"></div>
+
+    <span id="trackingBadge" class="badge bg-secondary" style="display:none; position: fixed; top: 15px; right: 15px; z-index: 20;" data-i18n="game.trackingBadge">Tryb bez kamery (bez śledzenia wzroku)</span>
+
+    <div id="gameStage"></div>
+
+    <script>
+        let settings = JSON.parse(localStorage.getItem('gameSettings')) || { count: 3, timer: 30 };
+        let currentCVIndex = 0;
+        let timerInterval;
+        let gamePhase = 'intro'; // 'intro' | 'watch' | 'quiz' | 'rate'
+        let currentQuestionIndex = 0;
+        let quizAnswers = []; // [{question, correct}]
+
+        const trackingEnabled = localStorage.getItem('trackingEnabled') !== 'false';
+        // Kanoniczne (niezmienne) nazwy kryteriów - używane jako klucze w scores{}/CSV/arkuszu.
+        // Wyświetlana etykieta i opis tłumaczą się przez criteriaLabel()/criteriaInfoText() (js/i18n.js).
+        const designCriteria = ["Przejrzystość tekstu", "Transparentność wizualna", "Kolorystyka", "Kompozycja"];
+        const INTRO_SECONDS = 5;
+
+        let rawGazePoints = [];
+        let sessionResults = [];
+
+        // BAZA CV: zdjęcie + pytania quizowe zgodne z faktyczną treścią CV.
+        // name/question/options są dwujęzyczne (pl/en) - pickLang() z js/i18n.js wybiera bieżący język.
+        const cvDatabase = [
+            {
+                name: { pl: "Kandydat #1 - Dawid Boratyński", en: "Candidate #1 - Dawid Boratyński" },
+                image: "media/cv1.jpg",
+                quiz: [
+                    {
+                        question: { pl: "O jakie stanowisko / branżę aplikuje kandydat?", en: "What position / industry is the candidate applying for?" },
+                        options: {
+                            pl: ["Marketing", "Data Analyst / Data Scientist", "Produkcja", "Sprzedaż"],
+                            en: ["Marketing", "Data Analyst / Data Scientist", "Manufacturing", "Sales"]
+                        },
+                        correctIndex: 1
+                    },
+                    {
+                        question: { pl: "Ile lat doświadczenia deklaruje kandydat we wstępie CV?", en: "How many years of experience does the candidate state in the CV summary?" },
+                        options: {
+                            pl: ["Poniżej roku", "Prawie 2 lata", "5 lat", "10 lat"],
+                            en: ["Less than a year", "Almost 2 years", "5 years", "10 years"]
+                        },
+                        correctIndex: 1
+                    },
+                    {
+                        question: { pl: "Czy CV wspomina o znajomości języka Java?", en: "Does the CV mention knowledge of Java?" },
+                        options: { pl: ["TAK", "NIE"], en: ["YES", "NO"] },
+                        correctIndex: 1
+                    }
+                ]
+            },
+            {
+                name: { pl: "Kandydat #2 - Jan Tomczyk", en: "Candidate #2 - Jan Tomczyk" },
+                image: "media/cv2.jpg",
+                quiz: [
+                    {
+                        question: { pl: "Jakie stanowisko zajmował kandydat?", en: "What position did the candidate hold?" },
+                        options: {
+                            pl: ["Specjalista ds. Marketingu", "Kierownik produkcji", "Data Engineer", "Grafik komputerowy"],
+                            en: ["Marketing Specialist", "Production Manager", "Data Engineer", "Graphic Designer"]
+                        },
+                        correctIndex: 0
+                    },
+                    {
+                        question: { pl: "Ile lat doświadczenia deklaruje kandydat we wstępie CV?", en: "How many years of experience does the candidate state in the CV summary?" },
+                        options: {
+                            pl: ["2 lata", "6 lat", "10 lat", "15 lat"],
+                            en: ["2 years", "6 years", "10 years", "15 years"]
+                        },
+                        correctIndex: 1
+                    },
+                    {
+                        question: { pl: "Czy kandydat wskazał umiejętność obsługi Facebook Ads?", en: "Did the candidate list Facebook Ads skills?" },
+                        options: { pl: ["TAK", "NIE"], en: ["YES", "NO"] },
+                        correctIndex: 0
+                    }
+                ]
+            },
+            {
+                name: { pl: "Kandydat #3 - Demet Palac", en: "Candidate #3 - Demet Palac" },
+                image: "media/cv3.png",
+                quiz: [
+                    {
+                        question: { pl: "Na jakim stanowisku pracuje kandydatka?", en: "What position does the candidate work in?" },
+                        options: {
+                            pl: ["Pracownik produkcji", "Specjalista ds. Marketingu", "Data Engineer", "Kierownik HR"],
+                            en: ["Production Worker", "Marketing Specialist", "Data Engineer", "HR Manager"]
+                        },
+                        correctIndex: 0
+                    },
+                    {
+                        question: { pl: "Ile lat doświadczenia deklaruje we wstępie CV?", en: "How many years of experience does she state in the CV summary?" },
+                        options: {
+                            pl: ["1 rok", "3 lata", "7 lat", "12 lat"],
+                            en: ["1 year", "3 years", "7 years", "12 years"]
+                        },
+                        correctIndex: 2
+                    },
+                    {
+                        question: { pl: "Czy kandydatka ma wykształcenie związane z inżynierią produkcji?", en: "Does she have an education background in production engineering?" },
+                        options: { pl: ["TAK", "NIE"], en: ["YES", "NO"] },
+                        correctIndex: 0
+                    }
+                ]
+            }
+        ];
+
+        window.addEventListener('load', async function() {
+            startIntroPhase();
+
+            if (!trackingEnabled) {
+                document.getElementById('trackingBadge').style.display = 'inline-block';
+                return;
+            }
+
+            // KRYTYCZNE: Ładowanie modelu z kalibracji
+            webgazer.saveDataAcrossSessions(true);
+
+            await webgazer.setGazeListener(function(data, elapsedTime) {
+                if (data == null) return;
+                if (gamePhase !== 'watch') return;
+
+                const imgElem = document.getElementById('cvImage');
+                if(!imgElem) return;
+
+                const rect = imgElem.getBoundingClientRect();
+
+                if (data.x >= rect.left && data.x <= rect.right && data.y >= rect.top && data.y <= rect.bottom) {
+                    // Zapisujemy pozycję jako ułamek szerokości/wysokości obrazka (0-1),
+                    // bo obrazek jest renderowany w innym rozmiarze na ekranie raportu.
+                    rawGazePoints.push({
+                        xNorm: (data.x - rect.left) / rect.width,
+                        yNorm: (data.y - rect.top) / rect.height,
+                        value: 1
+                    });
+                }
+            }).begin();
+
+            webgazer.showVideoPreview(false);
+            webgazer.showPredictionPoints(false);
+        });
+
+        function currentCV() {
+            return cvDatabase[currentCVIndex];
+        }
+
+        function startCountdown(totalSeconds, onTick, onComplete) {
+            clearInterval(timerInterval);
+            let secondsLeft = totalSeconds;
+            document.getElementById('timerBar').style.width = '100%';
+            onTick(secondsLeft);
+
+            timerInterval = setInterval(() => {
+                secondsLeft--;
+                const percentage = (secondsLeft / totalSeconds) * 100;
+                document.getElementById('timerBar').style.width = percentage + '%';
+                onTick(secondsLeft);
+
+                if (secondsLeft <= 0) {
+                    clearInterval(timerInterval);
+                    onComplete();
+                }
+            }, 1000);
+        }
+
+        function startIntroPhase() {
+            if (currentCVIndex >= settings.count || currentCVIndex >= cvDatabase.length) {
+                finishGame();
+                return;
+            }
+
+            gamePhase = 'intro';
+            rawGazePoints = [];
+            quizAnswers = [];
+            currentQuestionIndex = 0;
+
+            document.getElementById('timerBar').style.display = 'block';
+
+            const stage = document.getElementById('gameStage');
+            stage.innerHTML = `
+                <div class="watch-stage">
+                    <h3>${t('game.introTitle')}</h3>
+                    <p class="watch-hint">${t('game.introHint', {n: settings.timer})}</p>
+                    <div class="watch-countdown" id="introCountdown"></div>
+                </div>
+            `;
+
+            startCountdown(INTRO_SECONDS, (secondsLeft) => {
+                const el = document.getElementById('introCountdown');
+                if (el) el.textContent = Math.max(0, secondsLeft);
+            }, startWatchPhase);
+        }
+
+        function startWatchPhase() {
+            gamePhase = 'watch';
+
+            const stage = document.getElementById('gameStage');
+            stage.innerHTML = `
+                <div class="game-container">
+                    <div class="cv-panel" id="cvContent">
+                        <img src="${currentCV().image}" id="cvImage" class="img-fluid" style="max-height:85vh; border:1px solid #E0E0E0; box-shadow: 0 2px 12px rgba(0,0,0,0.06);">
+                    </div>
+                    <div class="eval-panel">
+                        <div class="watch-stage">
+                            <h3>${t('game.watchTitle')}</h3>
+                            <p class="watch-hint">${t('game.watchHint')}</p>
+                            <div class="watch-countdown" id="watchCountdown"></div>
+                            <button type="button" class="skip-btn" id="skipWatchBtn">${t('game.skipWatch')}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('skipWatchBtn').addEventListener('click', () => {
+                clearInterval(timerInterval);
+                startQuizPhase();
+            });
+
+            startCountdown(settings.timer, (secondsLeft) => {
+                const countdownEl = document.getElementById('watchCountdown');
+                if (countdownEl) countdownEl.textContent = Math.max(0, secondsLeft);
+            }, startQuizPhase);
+        }
+
+        function startQuizPhase() {
+            gamePhase = 'quiz';
+            document.getElementById('timerBar').style.display = 'none';
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const quiz = currentCV().quiz;
+            if (currentQuestionIndex >= quiz.length) {
+                startRatePhase();
+                return;
+            }
+            const q = quiz[currentQuestionIndex];
+            const questionText = pickLang(q.question);
+            const options = pickLang(q.options);
+
+            const stage = document.getElementById('gameStage');
+            stage.innerHTML = `
+                <div class="quiz-stage">
+                    <div class="quiz-progress">${t('game.quizProgress', {i: currentQuestionIndex + 1, n: quiz.length})}</div>
+                    <h2 class="quiz-question">${questionText}</h2>
+                    <div class="quiz-options" id="quizOptions"></div>
+                </div>
+            `;
+
+            const optionsContainer = document.getElementById('quizOptions');
+            options.forEach((optionText, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'quiz-option';
+                btn.textContent = optionText;
+                btn.addEventListener('click', () => handleQuizAnswer(idx));
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function handleQuizAnswer(selectedIndex) {
+            const quiz = currentCV().quiz;
+            const q = quiz[currentQuestionIndex];
+            const options = pickLang(q.options);
+            const isCorrect = selectedIndex === q.correctIndex;
+
+            quizAnswers.push({
+                question: pickLang(q.question),
+                selectedAnswer: options[selectedIndex],
+                correctAnswer: options[q.correctIndex],
+                correct: isCorrect
+            });
+
+            const buttons = document.querySelectorAll('#quizOptions .quiz-option');
+            buttons.forEach((btn, idx) => {
+                btn.disabled = true;
+                if (idx === q.correctIndex) btn.classList.add('correct');
+                else if (idx === selectedIndex) btn.classList.add('incorrect');
+            });
+
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < quiz.length) {
+                    renderQuestion();
+                } else {
+                    startRatePhase();
+                }
+            }, 700);
+        }
+
+        function startRatePhase() {
+            gamePhase = 'rate';
+            const correctCount = quizAnswers.filter(a => a.correct).length;
+
+            const stage = document.getElementById('gameStage');
+            stage.innerHTML = `
+                <div class="game-container rate-layout">
+                    <div class="cv-panel">
+                        <div>
+                            <div class="cv-zoom-wrap" id="cvZoomWrap">
+                                <img src="${currentCV().image}" id="rateCvImage" alt="CV">
+                                <button type="button" class="cv-maximize-btn" id="cvMaximizeBtn" title="${t('game.maximizeTitle')}" aria-label="${t('game.maximizeTitle')}">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                                </button>
+                            </div>
+                            <p class="cv-zoom-hint">${t('game.zoomHint')}</p>
+                        </div>
+                    </div>
+
+                    <div class="rate-panel">
+                        <h4>${t('game.quizResultTitle', {score: correctCount, total: quizAnswers.length})}</h4>
+                        <div class="quiz-breakdown" id="quizBreakdown"></div>
+
+                        <h4>${t('game.rateDesignTitle')}</h4>
+                        <div id="evaluationCriteria"></div>
+
+                        <h4 class="mt-4 tag-sort-heading">
+                            ${t('game.tagSortTitle')}
+                            <span class="info-icon" tabindex="0">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                <span class="info-tooltip">${t('game.tagSortTooltip')}</span>
+                            </span>
+                        </h4>
+                        <p class="tag-sort-hint">${t('game.tagSortHint')}</p>
+
+                        <div class="tag-pool">
+                            <div class="tag-zone-title">${t('game.tagPoolLabel')}</div>
+                            <div class="tag-zone-drop tag-pool-drop" id="zoneNeutral" data-zone="neutral"></div>
+                        </div>
+
+                        <div class="tag-sort-columns">
+                            <div class="tag-zone tag-zone-minus">
+                                <div class="tag-zone-title">${t('game.zoneMinus')}</div>
+                                <div class="tag-zone-drop" id="zoneMinus" data-zone="minus"></div>
+                            </div>
+                            <div class="tag-zone tag-zone-depends">
+                                <div class="tag-zone-title">${t('game.zoneDepends')}</div>
+                                <div class="tag-zone-drop" id="zoneDepends" data-zone="depends"></div>
+                            </div>
+                            <div class="tag-zone tag-zone-plus">
+                                <div class="tag-zone-title">${t('game.zonePlus')}</div>
+                                <div class="tag-zone-drop" id="zonePlus" data-zone="plus"></div>
+                            </div>
+                        </div>
+
+                        <div class="decision-buttons">
+                            <button class="btn btn-reject" id="btnReject">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                                ${t('game.reject')}
+                            </button>
+                            <button class="btn btn-accept" id="btnAccept">
+                                ${t('game.accept')}
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                            </button>
+                        </div>
+                        <div class="controls-hint">${t('game.controlsHint')}</div>
+                    </div>
+                </div>
+
+                <div class="cv-modal-overlay" id="cvModalOverlay">
+                    <button type="button" class="cv-modal-close" id="cvModalClose" aria-label="${t('game.modalCloseLabel')}">&times;</button>
+                    <img src="${currentCV().image}" alt="${t('game.modalAlt')}">
+                </div>
+            `;
+
+            const zoomWrap = document.getElementById('cvZoomWrap');
+            const zoomImg = document.getElementById('rateCvImage');
+            zoomWrap.addEventListener('mousemove', (e) => {
+                const rect = zoomWrap.getBoundingClientRect();
+                const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+                const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+                zoomImg.style.transformOrigin = `${xPct}% ${yPct}%`;
+                zoomImg.style.transform = 'scale(2.2)';
+            });
+            zoomWrap.addEventListener('mouseleave', () => {
+                zoomImg.style.transform = 'scale(1)';
+            });
+
+            const cvModalOverlay = document.getElementById('cvModalOverlay');
+            document.getElementById('cvMaximizeBtn').addEventListener('click', () => {
+                cvModalOverlay.classList.add('open');
+            });
+            document.getElementById('cvModalClose').addEventListener('click', () => {
+                cvModalOverlay.classList.remove('open');
+            });
+            cvModalOverlay.addEventListener('click', (e) => {
+                if (e.target === cvModalOverlay) cvModalOverlay.classList.remove('open');
+            });
+
+            const breakdownContainer = document.getElementById('quizBreakdown');
+            quizAnswers.forEach((qa, idx) => {
+                breakdownContainer.insertAdjacentHTML('beforeend', `
+                    <div class="quiz-breakdown-item ${qa.correct ? 'is-correct' : 'is-incorrect'}">
+                        <div class="quiz-breakdown-header">
+                            <span>${t('common.questionN', {i: idx + 1})}</span>
+                            <span class="quiz-breakdown-badge">${qa.correct ? t('common.correct') : t('common.incorrect')}</span>
+                        </div>
+                        <div class="quiz-breakdown-question">${qa.question}</div>
+                        <div class="quiz-breakdown-answer">${t('game.yourAnswer')} <strong>${qa.selectedAnswer}</strong></div>
+                        ${!qa.correct ? `<div class="quiz-breakdown-answer">${t('common.correctAnswerLabel')} <strong>${qa.correctAnswer}</strong></div>` : ''}
+                    </div>
+                `);
+            });
+
+            const evalContainer = document.getElementById('evaluationCriteria');
+            designCriteria.forEach((crit) => {
+                evalContainer.insertAdjacentHTML('beforeend', `
+                    <div class="slider-row">
+                        <div class="slider-row-label">
+                            <span class="slider-label-text">
+                                ${criteriaLabel(crit)}
+                                <span class="info-icon" tabindex="0">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                    <span class="info-tooltip">${criteriaInfoText(crit)}</span>
+                                </span>
+                            </span>
+                            <span class="slider-value">5</span>
+                        </div>
+                        <input type="range" class="form-range eval-slider" min="0" max="10" value="5" data-crit="${crit}">
+                    </div>
+                `);
+            });
+            document.querySelectorAll('.slider-row').forEach(row => {
+                const slider = row.querySelector('.eval-slider');
+                const valueEl = row.querySelector('.slider-value');
+                slider.addEventListener('input', () => { valueEl.textContent = slider.value; });
+            });
+
+            initTagSort();
+
+            document.getElementById('btnReject').addEventListener('click', () => processDecision('Odrzucono'));
+            document.getElementById('btnAccept').addEventListener('click', () => processDecision('Zatrudniono'));
+        }
+
+        const cvTags = ["Zdjęcie", "Czcionka", "Klauzula poufności", "Ikony / emoji / grafiki", "Adres zamieszkania", "Odnośniki zewnętrzne", "Długość CV", "Układ / kolumny"];
+
+        function initTagSort() {
+            const neutralZone = document.getElementById('zoneNeutral');
+            cvTags.forEach(tag => {
+                const tile = document.createElement('div');
+                tile.className = 'tag-tile';
+                tile.draggable = true;
+                tile.dataset.tag = tag;
+                tile.textContent = tagLabel(tag);
+                tile.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', tag);
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                neutralZone.appendChild(tile);
+            });
+
+            document.querySelectorAll('.tag-zone-drop').forEach(zone => {
+                zone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    zone.classList.add('drag-over');
+                });
+                zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+                zone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    zone.classList.remove('drag-over');
+                    const tagName = e.dataTransfer.getData('text/plain');
+                    const tile = document.querySelector(`.tag-tile[data-tag="${CSS.escape(tagName)}"]`);
+                    if (tile) zone.appendChild(tile);
+                });
+            });
+        }
+
+        function collectTagSortResults() {
+            const readZone = (id) => Array.from(document.querySelectorAll(`#${id} .tag-tile`)).map(t => t.dataset.tag);
+            return {
+                plus: readZone('zonePlus'),
+                minus: readZone('zoneMinus'),
+                depends: readZone('zoneDepends'),
+                neutral: readZone('zoneNeutral')
+            };
+        }
+
+        function processDecision(decision) {
+            let scores = {};
+            document.querySelectorAll('.eval-slider').forEach(slider => {
+                scores[slider.dataset.crit] = slider.value;
+            });
+
+            sessionResults.push({
+                cvId: currentCVIndex + 1,
+                name: pickLang(currentCV().name),
+                imageSrc: currentCV().image,
+                decision: decision,
+                scores: scores,
+                tags: collectTagSortResults(),
+                quizScore: quizAnswers.filter(a => a.correct).length,
+                quizTotal: quizAnswers.length,
+                quizDetails: [...quizAnswers],
+                gazeAnalytics: {
+                    trackingEnabled: trackingEnabled,
+                    points: [...rawGazePoints]
+                }
+            });
+
+            currentCVIndex++;
+            startIntroPhase();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (gamePhase !== 'rate') return;
+
+            const cvModalOverlay = document.getElementById('cvModalOverlay');
+            const modalOpen = cvModalOverlay && cvModalOverlay.classList.contains('open');
+
+            if (e.key === 'Escape' && modalOpen) {
+                cvModalOverlay.classList.remove('open');
+                return;
+            }
+            if (modalOpen) return;
+
+            if (e.key === 'ArrowLeft') processDecision('Odrzucono');
+            if (e.key === 'ArrowRight') processDecision('Zatrudniono');
+        });
+
+        function finishGame() {
+            if (trackingEnabled) {
+                webgazer.pause();
+            }
+            localStorage.setItem('sessionResults', JSON.stringify(sessionResults));
+
+            // Wysyłka raportu mailem (fire-and-forget - nie blokuje przejścia do podsumowania)
+            fetch('/report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionResults })
+            }).catch(err => console.warn('Nie udało się wysłać raportu mailem:', err));
+
+            swal({
+                title: t('game.finishTitle'),
+                text: t('game.finishText'),
+                icon: "success",
+                buttons: false,
+                timer: 2000
+            }).then(() => {
+                window.location.href = "summary.html";
+            });
+        }
+    </script>
+</body>
+</html>

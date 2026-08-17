@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title data-i18n-doctitle="idx.pageTitle">HR Game - Strona Główna</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/i18n.js"></script>
+</head>
+<body>
+
+    <div class="menu-container">
+        <div class="menu-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h5l2 3h9a1 1 0 0 1 1 1v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
+        </div>
+        <h1 data-i18n="idx.title">Witaj w HR Game</h1>
+        <p class="menu-subtitle" data-i18n="idx.subtitle">Sprawdź swoje umiejętności analizy CV w praktyce.</p>
+
+        <div class="menu-options">
+            <button id="playBtn" class="menu-option menu-option-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                <span data-i18n="idx.play">Graj</span>
+            </button>
+            <a href="calibration.html" class="menu-option">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+                <span data-i18n="idx.calibrate">Kalibruj</span>
+            </a>
+            <a href="analysis.html" class="menu-option">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                <span data-i18n="idx.viewAnalysis">Zobacz analizę</span>
+            </a>
+            <a href="options.html" class="menu-option">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span data-i18n="idx.options">Opcje</span>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('playBtn').addEventListener('click', function() {
+            const trackingWanted = localStorage.getItem('eyeTrackingPreference') !== 'false';
+
+            if (!trackingWanted) {
+                // Użytkownik wyłączył eye tracking w Opcjach - graj bez kamery
+                localStorage.setItem('trackingEnabled', 'false');
+                localStorage.setItem('isCalibrated', 'true');
+                window.location.href = "setup.html";
+                return;
+            }
+
+            const alreadyCalibrated = localStorage.getItem('isCalibrated') === 'true'
+                && localStorage.getItem('trackingEnabled') !== 'false';
+
+            window.location.href = alreadyCalibrated ? "setup.html" : "calibration.html";
+        });
+    </script>
+
+</body>
+</html>
