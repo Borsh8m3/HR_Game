@@ -4,3 +4,4 @@ __pycache__
 node_modules
 .claude/settings.local.json
 .env
+public/data/sheet-data.json

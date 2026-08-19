@@ -51,7 +51,7 @@
 
             let candidates = [];
             try {
-                const res = await fetch('/sheet-data');
+                const res = await fetch('data/sheet-data.json');
                 const data = await res.json();
                 if (data.status === 'success') candidates = data.candidates;
             } catch (err) {

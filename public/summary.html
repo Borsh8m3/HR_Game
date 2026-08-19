@@ -89,6 +89,7 @@
                             <p class="text-muted mb-0" data-i18n="sum.subtitle">Który kandydat wypadł najlepiej i jak oceniają ich inni gracze.</p>
                         </div>
                         <div class="d-flex gap-2">
+                            <button type="button" id="emailReportBtn" class="btn btn-outline-secondary btn-sm" data-i18n="sum.emailReport">Wyślij raport mailem</button>
                             <a href="setup.html" class="btn btn-outline-primary btn-sm" data-i18n="sum.playAgain">Zagraj ponownie</a>
                             <a href="index.html" class="btn btn-primary btn-sm" data-i18n="common.backToMenu">Powrót do menu</a>
                         </div>
@@ -146,7 +147,37 @@
 
     <script>
         const sessionResults = JSON.parse(localStorage.getItem('sessionResults')) || [];
-        let heatmapInstance = null; 
+        let heatmapInstance = null;
+
+        // Wersja demo (GitHub Pages) nie ma serwera do wysyłki maila - budujemy mailto: z
+        // tekstowym podsumowaniem sesji, żeby użytkownik mógł sam dosłać wynik jednym kliknięciem.
+        // Bez załącznika CSV (mailto: tego nie obsługuje) i bez auto-wysyłki (mailto: tylko otwiera
+        // klienta poczty, resztę robi użytkownik).
+        function buildMailtoReport() {
+            const subject = t('sum.emailSubject', { n: sessionResults.length });
+            const lines = sessionResults.map(r => {
+                const scoreLines = Object.entries(r.scores || {})
+                    .map(([crit, val]) => `  ${criteriaLabel(crit)}: ${val}/10`)
+                    .join('\n');
+                const tagLine = (label, arr) => (arr && arr.length)
+                    ? `  ${label}: ${arr.map(tagLabel).join(', ')}`
+                    : null;
+                const tagLines = [
+                    tagLine('+', r.tags?.plus),
+                    tagLine('-', r.tags?.minus),
+                    tagLine('?', r.tags?.depends)
+                ].filter(Boolean).join('\n');
+
+                return [`${r.name} - ${decisionLabel(r.decision)}`, scoreLines, tagLines].filter(Boolean).join('\n');
+            });
+
+            const body = lines.join('\n\n');
+            return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        }
+
+        document.getElementById('emailReportBtn').addEventListener('click', () => {
+            window.location.href = buildMailtoReport();
+        });
 
         window.addEventListener('load', function() {
             const listContainer = document.getElementById('candidateList');
@@ -319,7 +350,7 @@
         async function renderAggregateReport() {
             let sheetCandidates = [];
             try {
-                const res = await fetch('/sheet-data');
+                const res = await fetch('data/sheet-data.json');
                 const data = await res.json();
                 if (data.status === 'success') sheetCandidates = data.candidates;
             } catch (err) {
